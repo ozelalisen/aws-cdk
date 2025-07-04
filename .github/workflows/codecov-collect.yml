@@ -9,7 +9,7 @@ permissions:
 jobs:
   collect:
     name: Collect Coverage
-    runs-on: codebuild-ozelalisen-aws-cdk-runner-${{ github.run_id }}-${{ github.run_attempt }}
+    runs-on: personal-cdk-github-actions-runner-${{ github.run_id }}-${{ github.run_attempt }}
 
     steps:
       - name: Checkout
