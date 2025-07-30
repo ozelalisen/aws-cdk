@@ -112,7 +112,7 @@ describe('metric filter', () => {
     }));
   });
 
-  test('metric filter exposes metric with custom dimensions', () => {
+  test('metric filter exposes metric with filter dimensions', () => {
     // GIVEN
     const stack = new Stack();
     const logGroup = new LogGroup(stack, 'LogGroup');
@@ -139,6 +139,76 @@ describe('metric filter', () => {
       dimensionsMap: {
         Foo: 'Bar',
         Bar: 'Baz',
+      },
+      statistic: 'avg',
+    }));
+  });
+
+  test('metric filter allows overriding dimensions via dimensionsMap', () => {
+    // GIVEN
+    const stack = new Stack();
+    const logGroup = new LogGroup(stack, 'LogGroup');
+
+    // WHEN
+    const mf = new MetricFilter(stack, 'Subscription', {
+      logGroup,
+      metricNamespace: 'AWS/Test',
+      metricName: 'Latency',
+      metricValue: '$.latency',
+      filterPattern: FilterPattern.exists('$.latency'),
+      dimensions: {
+        Foo: 'Bar',
+        Bar: 'Baz',
+      },
+    });
+
+    const metric = mf.metric({
+      dimensionsMap: {
+        NewDim: 'Value',
+      },
+    });
+
+    // THEN
+    expect(metric).toEqual(new Metric({
+      metricName: 'Latency',
+      namespace: 'AWS/Test',
+      dimensionsMap: {
+        NewDim: 'Value',
+      },
+      statistic: 'avg',
+    }));
+  });
+
+  test('metric filter allows overriding dimensions via legacy dimensions property', () => {
+    // GIVEN
+    const stack = new Stack();
+    const logGroup = new LogGroup(stack, 'LogGroup');
+
+    // WHEN
+    const mf = new MetricFilter(stack, 'Subscription', {
+      logGroup,
+      metricNamespace: 'AWS/Test',
+      metricName: 'Latency',
+      metricValue: '$.latency',
+      filterPattern: FilterPattern.exists('$.latency'),
+      dimensions: {
+        Foo: 'Bar',
+        Bar: 'Baz',
+      },
+    });
+
+    const metric = mf.metric({
+      dimensions: {
+        NewDim: 'Value',
+      },
+    });
+
+    // THEN
+    expect(metric).toEqual(new Metric({
+      metricName: 'Latency',
+      namespace: 'AWS/Test',
+      dimensionsMap: {
+        NewDim: 'Value',
       },
       statistic: 'avg',
     }));

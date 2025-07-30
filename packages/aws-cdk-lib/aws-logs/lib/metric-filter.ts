@@ -73,10 +73,13 @@ export class MetricFilter extends Resource {
    */
   @MethodMetadata()
   public metric(props?: MetricOptions): Metric {
+    // Use the dimensions from the filter's metric transformation if not overridden by props
+    const dimensions = props?.dimensionsMap ?? props?.dimensions ?? this.metricDimensions;
+    
     return new Metric({
       metricName: this.metricName,
       namespace: this.metricNamespace,
-      dimensionsMap: this.metricDimensions,
+      dimensionsMap: dimensions,
       statistic: 'avg',
       ...props,
     }).attachTo(this);
