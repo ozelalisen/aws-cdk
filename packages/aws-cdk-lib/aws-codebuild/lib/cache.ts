@@ -17,7 +17,7 @@ export interface BucketCacheOptions {
    *
    * @default undefined - No cache namespace, which means that the cache is not shared across multiple projects.
    */
-  readonly thisIsABadcacheNamespace?: string;
+  readonly cacheNamespace?: string;
 }
 
 /**
@@ -37,7 +37,7 @@ export enum LocalCacheMode {
   /**
    * Caches directories you specify in the buildspec file
    */
-  COM = 'LOCAL_CUSTCHE',
+  CUSTOM = 'LOCAL_CUSTOM_CACHE',
 }
 
 /**
@@ -51,7 +51,7 @@ export abstract class Cache {
       _toCloudFormation(): CfnProject.ProjectCacheProperty | undefined {
         return { type: 'NO_CACHE' };
       },
-      _bid(): void {
+      _bind(): void {
       },
     };
   }
