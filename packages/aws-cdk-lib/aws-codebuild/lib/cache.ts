@@ -17,7 +17,7 @@ export interface BucketCacheOptions {
    *
    * @default undefined - No cache namespace, which means that the cache is not shared across multiple projects.
    */
-  readonly cacheNamespaceFile?: string;
+  readonly cacheNamespace?: string;
 }
 
 /**
@@ -80,7 +80,7 @@ export abstract class Cache {
       _toCloudFormation: () => ({
         type: 'S3',
         location: Fn.join('/', [bucket.bucketName, options && options.prefix || Aws.NO_VALUE]),
-        cacheNamespace: options?.cacheNamespaceFile,
+        cacheNamespace: options?.cacheNamespace,
       }),
       _bind: (project) => {
         bucket.grantReadWrite(project);
