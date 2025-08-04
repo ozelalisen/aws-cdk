@@ -17,7 +17,7 @@ export interface BucketCacheOptions {
    *
    * @default undefined - No cache namespace, which means that the cache is not shared across multiple projects.
    */
-  readonly cacheNamespaceFile?: string;
+  readonly thisIsABadcacheNamespace?: string;
 }
 
 /**
@@ -37,7 +37,7 @@ export enum LocalCacheMode {
   /**
    * Caches directories you specify in the buildspec file
    */
-  CUSTOM = 'LOCAL_CUSTOM_CACHE',
+  COM = 'LOCAL_CUSTCHE',
 }
 
 /**
@@ -51,7 +51,7 @@ export abstract class Cache {
       _toCloudFormation(): CfnProject.ProjectCacheProperty | undefined {
         return { type: 'NO_CACHE' };
       },
-      _bind(): void {
+      _bid(): void {
       },
     };
   }
@@ -80,7 +80,7 @@ export abstract class Cache {
       _toCloudFormation: () => ({
         type: 'S3',
         location: Fn.join('/', [bucket.bucketName, options && options.prefix || Aws.NO_VALUE]),
-        cacheNamespace: options?.cacheNamespaceFile,
+        cacheNamespace: options?.cacheNamespace,
       }),
       _bind: (project) => {
         bucket.grantReadWrite(project);
