@@ -1,0 +1,63 @@
+name: Test check-snapshots
+
+# Temporary workflow to verify the check-snapshots script works in CI.
+# Delete after validation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_sha:
+        description: 'Base SHA (target branch commit)'
+        required: true
+        default: 'c415e179f4'
+      head_sha:
+        description: 'Head SHA (source branch commit)'
+        required: true
+        default: '6e10ddba2c'
+
+jobs:
+  test_check_snapshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "lts/*"
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build deployment-integ
+        run: yarn --cwd tools/@aws-cdk/integration-test-deployment build
+
+      - name: Check for snapshot changes (positive case)
+        env:
+          TARGET_BRANCH_COMMIT: ${{ github.event.inputs.base_sha }}
+          SOURCE_BRANCH_COMMIT: ${{ github.event.inputs.head_sha }}
+        run: |
+          echo "=== Testing with TARGET=$TARGET_BRANCH_COMMIT SOURCE=$SOURCE_BRANCH_COMMIT ==="
+          if yarn --cwd tools/@aws-cdk/integration-test-deployment check-snapshots; then
+            echo "✅ Snapshots detected (exit 0)"
+          else
+            echo "❌ No snapshots detected (exit 1)"
+          fi
+
+      - name: Check for snapshot changes (negative case - no snapshots)
+        env:
+          TARGET_BRANCH_COMMIT: c415e179f4
+          SOURCE_BRANCH_COMMIT: f194236b08
+        run: |
+          echo "=== Testing negative case (no snapshot changes expected) ==="
+          if yarn --cwd tools/@aws-cdk/integration-test-deployment check-snapshots; then
+            echo "❌ UNEXPECTED: Snapshots detected when none expected"
+            exit 1
+          else
+            echo "✅ Correctly detected no snapshots (exit 1)"
+          fi
