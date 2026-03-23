@@ -1,11 +1,8 @@
 name: Integration Test deployment (Auto)
 
-# Privileged workflow that runs integration tests when triggered by the
-# "Integration Test Auto Trigger" workflow. Uses workflow_run to run in the
-# base repo context with access to secrets, vars, and OIDC.
-#
-# SHADOW MODE: Failures don't block PR merges.
-# Once validated, this will replace the label-based workflow (integration-test-deployment.yml).
+# ⚠️ FORK TEST VERSION — DO NOT MERGE
+# Tests the real validate-approver team membership check.
+# Real version: see commit 49066b8463
 
 on:
   workflow_run:
@@ -44,7 +41,9 @@ jobs:
           echo "base_sha=$(cat pr/base_sha)" >> "$GITHUB_OUTPUT"
           echo "reviewer=$(cat pr/reviewer)" >> "$GITHUB_OUTPUT"
           echo "has_snapshots=$(cat pr/has_snapshots)" >> "$GITHUB_OUTPUT"
+          echo "::notice::PR #$(cat pr/pr_number) | reviewer=$(cat pr/reviewer) | snapshots=$(cat pr/has_snapshots)"
 
+  # REAL team membership check — uses secrets.PROJEN_GITHUB_TOKEN
   validate-approver:
     needs: download-pr-info
     if: needs.download-pr-info.outputs.has_snapshots == 'true'
@@ -66,81 +65,17 @@ jobs:
             echo "is_member=false" >> $GITHUB_OUTPUT
           fi
 
+  # FORK TEST: Stub deployment — just confirm the gate worked
   integration_test_deployment_auto:
     needs: [download-pr-info, validate-approver]
     if: needs.validate-approver.outputs.is_member == 'true'
-    runs-on: codebuild-aws-cdk-github-actions-deployment-integ-runner-${{ github.run_id }}-${{ github.run_attempt }}
-    # Shadow mode: workflow reports success even if tests fail
+    runs-on: ubuntu-latest
     continue-on-error: true
     name: 'Deploy integration test snapshots (Auto)'
-
-    permissions:
-      id-token: write # Required for OIDC authentication with AWS Atmosphere
-      contents: read
-
-    env:
-      PR_BUILD: true
-
     steps:
-      - name: Checkout HEAD
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.download-pr-info.outputs.head_sha }}
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "lts/*"
-          cache: "yarn"
-          cache-dependency-path: |
-            yarn.lock
-
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v4
-
-      - name: Load Docker images
-        id: docker-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.docker-images.tar
-          key: docker-cache-${{ runner.os }}
-
-      - name: Restore Docker images
-        if: ${{ steps.docker-cache.outputs.cache-hit }}
-        run: docker image load --input ~/.docker-images.tar
-
-      - name: Cache build artifacts
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.s3buildcache
-          key: s3buildcache-${{ runner.os }}
-
-      - name: Configure system settings
+      - name: "FORK TEST: Deployment stub"
         run: |
-          (command -v sysctl || sudo apt-get update && sudo apt-get install -y procps) && \
-          sudo sysctl -w vm.max_map_count=2251954
-
-      - name: Install dependencies for Integration Tests
-        run: yarn install --frozen-lockfile
-
-      - name: Build deployment-integ
-        run: yarn --cwd tools/@aws-cdk/integration-test-deployment build
-
-      - name: Build Integration Test packages
-        run: npx lerna run build --scope="{@aws-cdk/*,@aws-cdk-testing/framework-integ}"
-
-      - name: Run integration tests
-        run: yarn run atmosphere-integ-test
-        env:
-          CDK_ATMOSPHERE_ENDPOINT: ${{ vars.CDK_ATMOSPHERE_ENDPOINT }}
-          CDK_ATMOSPHERE_POOL: ${{ vars.CDK_ATMOSPHERE_POOL }}
-          CDK_ATMOSPHERE_OIDC_ROLE: ${{ vars.CDK_ATMOSPHERE_OIDC_ROLE }}
-          CDK_ATMOSPHERE_BATCH_SIZE: ${{ vars.CDK_ATMOSPHERE_BATCH_SIZE }}
-          TARGET_BRANCH_COMMIT: ${{ needs.download-pr-info.outputs.base_sha }}
-          SOURCE_BRANCH_COMMIT: ${{ needs.download-pr-info.outputs.head_sha }}
-          GITHUB_TOKEN: ${{ secrets.PROJEN_GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ needs.download-pr-info.outputs.pr_number }}
+          echo "========================================="
+          echo "  Team check passed — deployment would run ✅"
+          echo "========================================="
+          echo "Reviewer ${{ needs.download-pr-info.outputs.reviewer }} is a CDK team member"
