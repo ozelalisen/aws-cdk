@@ -1,4 +1,5 @@
 {
+ "Description": "TEST: dummy snapshot change to trigger integ-test-auto workflow",
  "Resources": {
   "SourceQueue6E809DF0": {
    "Type": "AWS::SQS::Queue",
