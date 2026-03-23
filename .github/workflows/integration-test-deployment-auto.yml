@@ -1,12 +1,6 @@
 name: Integration Test deployment (Auto)
 
-# Privileged workflow that runs integration tests when triggered by the
-# "Integration Test Auto Trigger" workflow. Uses workflow_run to run in the
-# base repo context with access to secrets, vars, and OIDC.
-#
-# SHADOW MODE: Failures don't block PR merges.
-# Once validated, this will replace the label-based workflow (integration-test-deployment.yml).
-
+# ⚠️ FORK TEST VERSION — validates Checks API + team check + concurrency
 on:
   workflow_run:
     workflows: ["Integration Test Auto Trigger"]
@@ -14,7 +8,7 @@ on:
       - completed
 
 permissions:
-  actions: read # Required to download artifacts from the trigger workflow run
+  actions: read
 
 jobs:
   pr_info:
@@ -70,23 +64,17 @@ jobs:
   integration_test_deployment_auto:
     needs: [pr_info, validate_approver]
     if: needs.validate_approver.outputs.is_member == 'true'
-    runs-on: codebuild-aws-cdk-github-actions-deployment-integ-runner-${{ github.run_id }}-${{ github.run_attempt }}
-    timeout-minutes: 7200 # Maximum limit for self-hosted runners, job can still be limited by our runner timeout (which is set at 36 hours).
-    # Shadow mode: workflow reports success even if tests fail
+    runs-on: ubuntu-latest
     continue-on-error: true
     name: 'Deploy integration test snapshots (Auto)'
-    # Cancel previous deployment for the same PR (uses artifact-sourced PR number, works for fork PRs)
     concurrency:
       group: integ-test-auto-${{ needs.pr_info.outputs.pr_number }}
       cancel-in-progress: true
 
     permissions:
-      id-token: write # Required for OIDC authentication with AWS Atmosphere
+      id-token: write
       contents: read
-      checks: write # Required to report status back to PR via Checks API
-
-    env:
-      PR_BUILD: true
+      checks: write
 
     steps:
       - name: Create check run
@@ -107,69 +95,17 @@ jobs:
             /repos/${{ github.repository }}/check-runs)
           echo "check_id=$CHECK_ID" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout HEAD
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ needs.pr_info.outputs.head_sha }}
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: "lts/*"
-          cache: "yarn"
-          cache-dependency-path: |
-            yarn.lock
-
-      - name: Set up Docker
-        uses: docker/setup-buildx-action@v4
-
-      - name: Load Docker images
-        id: docker-cache
-        uses: actions/cache/restore@v5
-        with:
-          path: |
-            ~/.docker-images.tar
-          key: docker-cache-${{ runner.os }}
-
-      - name: Restore Docker images
-        if: ${{ steps.docker-cache.outputs.cache-hit }}
-        run: docker image load --input ~/.docker-images.tar
-
-      - name: Cache build artifacts
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.s3buildcache
-          key: s3buildcache-${{ runner.os }}
-
-      - name: Configure system settings
-        run: |
-          (command -v sysctl || sudo apt-get update && sudo apt-get install -y procps) && \
-          sudo sysctl -w vm.max_map_count=2251954
-
-      - name: Install dependencies for Integration Tests
-        run: yarn install --frozen-lockfile
-
-      - name: Build deployment-integ
-        run: yarn --cwd tools/@aws-cdk/integration-test-deployment build
-
-      - name: Build Integration Test packages
-        run: npx lerna run build --scope="{@aws-cdk/*,@aws-cdk-testing/framework-integ}"
-
+      # FORK TEST: Stub deployment
       - name: Run integration tests
         id: run_tests
-        run: yarn run atmosphere-integ-test
-        env:
-          CDK_ATMOSPHERE_ENDPOINT: ${{ vars.CDK_ATMOSPHERE_ENDPOINT }}
-          CDK_ATMOSPHERE_POOL: ${{ vars.CDK_ATMOSPHERE_POOL }}
-          CDK_ATMOSPHERE_OIDC_ROLE: ${{ vars.CDK_ATMOSPHERE_OIDC_ROLE }}
-          CDK_ATMOSPHERE_BATCH_SIZE: ${{ vars.CDK_ATMOSPHERE_BATCH_SIZE }}
-          TARGET_BRANCH_COMMIT: ${{ needs.pr_info.outputs.base_sha }}
-          SOURCE_BRANCH_COMMIT: ${{ needs.pr_info.outputs.head_sha }}
-          GITHUB_TOKEN: ${{ secrets.PROJEN_GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ needs.pr_info.outputs.pr_number }}
+        run: |
+          echo "========================================="
+          echo "  FORK TEST — Checks API validated! ✅"
+          echo "========================================="
+          echo "PR Number:  ${{ needs.pr_info.outputs.pr_number }}"
+          echo "Head SHA:   ${{ needs.pr_info.outputs.head_sha }}"
+          echo "Reviewer:   ${{ needs.pr_info.outputs.reviewer }}"
+          echo "Check ID:   ${{ steps.create_check.outputs.check_id }}"
 
       - name: Update check run
         if: always() && steps.create_check.outputs.check_id

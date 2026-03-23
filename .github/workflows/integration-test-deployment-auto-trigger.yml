@@ -9,19 +9,33 @@ name: Integration Test Auto Trigger
 on:
   pull_request_review:
     types: [submitted]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number'
+        required: true
+      head_sha:
+        description: 'Head commit SHA'
+        required: true
+      base_sha:
+        description: 'Base commit SHA'
+        required: true
+      reviewer:
+        description: 'Reviewer login'
+        required: true
 
 permissions:
   contents: read
 
 jobs:
   save-pr-info:
-    if: github.event.review.state == 'approved'
+    if: github.event_name == 'workflow_dispatch' || github.event.review.state == 'approved'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.inputs.head_sha || github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Setup Node.js
@@ -38,8 +52,8 @@ jobs:
       - name: Check for snapshot changes
         id: check_snapshots
         env:
-          TARGET_BRANCH_COMMIT: ${{ github.event.pull_request.base.sha }}
-          SOURCE_BRANCH_COMMIT: ${{ github.event.pull_request.head.sha }}
+          TARGET_BRANCH_COMMIT: ${{ github.event.inputs.base_sha || github.event.pull_request.base.sha }}
+          SOURCE_BRANCH_COMMIT: ${{ github.event.inputs.head_sha || github.event.pull_request.head.sha }}
         run: |
           if yarn --cwd tools/@aws-cdk/integration-test-deployment check-snapshots; then
             echo "has_snapshots=true" >> $GITHUB_OUTPUT
@@ -50,10 +64,10 @@ jobs:
       - name: Save PR info
         if: steps.check_snapshots.outputs.has_snapshots == 'true'
         env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          REVIEWER: ${{ github.event.review.user.login }}
+          PR_NUMBER: ${{ github.event.inputs.pr_number || github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.inputs.head_sha || github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.inputs.base_sha || github.event.pull_request.base.sha }}
+          REVIEWER: ${{ github.event.inputs.reviewer || github.event.review.user.login }}
         run: |
           mkdir -p ./trigger-context
           echo "$PR_NUMBER" > ./trigger-context/pr_number
